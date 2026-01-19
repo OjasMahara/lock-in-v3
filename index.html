@@ -91,3 +91,207 @@ button.secondary{background:#374151; border:none;}
 .overlay-card{background:#111827;padding:20px;border-radius:16px;width:90%;max-height: 90vh; overflow-y: auto;}
 </style>
 </head>
+<body>
+<div class="app" id="appContainer">
+<header>
+<h1>🔒 Lock -In Focus</h1>
+<div style="color:var(--muted)">Task -based Time Tracker</div>
+</header>
+<div class="task-input" id="taskInputBar">
+<input id="taskText" type="text" placeholder="Task" />
+<input id="estMin" type="number" min="0" placeholder="Min" />
+<input id="estSec" type="number" min="0" max="59" placeholder="Sec" />
+<button id="addBtn" class="secondary">Add</button>
+</div>
+<div id="taskList" class="task-list"></div>
+<div class="timer-grid">
+<div class="timer-card">
+<h3>Current Task</h3>
+<div id="currentTask">No task selected</div>
+<div class="time" id="countdown">00:00</div>
+</div>
+<div class="timer-card">
+<h3>Status</h3>
+<div id="stateText">Idle</div>
+<div class="time" id="stopwatch">00:00:00</div>
+</div>
+</div>
+<div class="actions">
+<button id="startBtn" class="primary">Start</button>
+<button id="completeBtn" class="secondary">Complete</button>
+</div>
+<footer>
+<div>Remaining: <span id="remaining">0</span></div>
+<div>Done: <span id="doneCount">0</span></div>
+</footer>
+<div class="footer-credit">by_ojas_mahara</div>
+</div>
+<div id="resultsOverlay" class="overlay">
+<div class="overlay-card" style="max-width:700px;text-align:left">
+<h3 style="text-align:center">Session Complete</h3>
+<table id="statsTable" style="width:100%;border-collapse:collapse;margin-top:16px;font-size:14px"></table>
+<div id="statsSummary" style="margin-top:16px;font-size:14px;white-space:pre-line"></div>
+<div style="text-align:center;margin-top:20px">
+<button id="closeStatsBtn" class="primary">Start New Session</button>
+</div>
+</div>
+</div>
+<script>
+let tasks=[],current=null,paused=true,tick=null,taskStart=0,pauseStart=0,totalPaused=0,totalActual=0;
+const $=id=>document.getElementById(id);
+const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+function updateTaskInputVisibility(){
+  $('taskInputBar').style.display = (!paused && current!==null) ? 'none' : 'flex';
+  document.querySelector('.timer-grid').style.display = (current !== null) ? 'grid' : 'none';
+}
+$('addBtn').onclick=()=>{
+ const text=$('taskText').value.trim();
+ if(!text)return;
+ let m=parseInt($('estMin').value||'0',10);
+ let s=parseInt($('estSec').value||'0',10);
+ if(Number.isNaN(m)||Number.isNaN(s))return alert('Invalid time');
+ if(m<0||s<0)return alert('Negative values not allowed');
+ if(s>=60)return alert('Seconds must be below 60');
+ const est=m*60+s;
+ if(est<=0||est>12*60*60)return alert('Time out of range');
+ tasks.push({text,est,spent:0,done:false,alerted:false});
+ $('taskText').value='';$('estMin').value='';$('estSec').value='';
+ render();
+};
+function render(){
+ const list=$('taskList');list.innerHTML='';
+ tasks.forEach((t,i)=>{
+  const d=document.createElement('div');d.className='task';
+  if(i===current){d.classList.add('selected');if(!t.done)d.classList.add('running');}
+  if(t.done)d.classList.add('done');
+  d.innerHTML=`<div>${t.text}</div><div class='meta'>Est ${fmt(t.est)} | Spent ${fmt(t.spent)}</div>`;
+  if(!t.done && paused){
+    const actions=document.createElement('div');actions.className='task-actions';
+    const renameBtn=document.createElement('button');renameBtn.textContent='Rename';
+    renameBtn.onclick=(e)=>{
+      e.stopPropagation(); 
+      if(paused && !t.done){
+        const newText = prompt('Rename task', t.text);
+        if(newText !== null && newText.trim() !== ''){
+          t.text = newText.trim();
+          render();
+        }
+      }
+    };
+    const delBtn=document.createElement('button');delBtn.textContent='Delete';
+    delBtn.onclick=(e)=>{e.stopPropagation(); if(paused){tasks.splice(i,1); if(current===i)current=null; render();}};
+    actions.appendChild(renameBtn);actions.appendChild(delBtn);
+    d.appendChild(actions);
+  }
+  d.onmousedown=(e)=>{if(paused){dragStart(e,i);}};
+  d.onclick=()=>{if(!t.done){current=i;loadTask(i);render();}};
+  list.appendChild(d);
+ });
+ $('remaining').textContent=tasks.filter(t=>!t.done).length;
+ $('doneCount').textContent=tasks.filter(t=>t.done).length;
+ updateTaskInputVisibility();
+}
+function dragStart(e,index){
+ const dragItem=tasks[index];
+ const onMove=moveEvent=>{
+  const list=$('taskList');
+  const y=moveEvent.clientY;
+  let swapIndex=null;
+  Array.from(list.children).forEach((child,i)=>{if(i!==index){
+   const rect=child.getBoundingClientRect();
+   if(y>rect.top && y<rect.bottom){swapIndex=i;}
+  }});
+  if(swapIndex!==null){tasks.splice(index,1);tasks.splice(swapIndex,0,dragItem);if(current===index)current=swapIndex;render();index=swapIndex;}
+ };
+ const onUp=()=>{document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);};
+ document.addEventListener('mousemove',onMove);
+ document.addEventListener('mouseup',onUp);
+}
+function loadTask(index){
+ if(current===null || !tasks[index])return;
+ current=index;
+ paused=true;
+ $('currentTask').textContent=tasks[current].text;
+ $('countdown').textContent=fmt(Math.max(0,tasks[current].est-tasks[current].spent));
+ $('stopwatch').textContent=new Date(tasks[current].spent*1000).toISOString().substr(11,8);
+ $('stateText').textContent='Idle';
+ $('startBtn').textContent='Start';
+ updateTaskInputVisibility();
+}
+$('startBtn').onclick=()=>{
+ if(current===null || !tasks[current])return;
+ if(paused){
+  paused=false;
+  if(pauseStart){totalPaused+=Math.floor((Date.now()-pauseStart)/1000);pauseStart=0;}
+  $('stateText').textContent='Running';$('startBtn').textContent='Pause';
+  taskStart=Date.now()-tasks[current].spent*1000;
+  tick && clearInterval(tick);
+  tick=setInterval(()=>{
+   if(!tasks[current]){clearInterval(tick);return;}
+   const s=Math.floor((Date.now()-taskStart)/1000);
+   tasks[current].spent=s;
+   $('stopwatch').textContent=new Date(s*1000).toISOString().substr(11,8);
+   $('countdown').textContent=fmt(Math.max(0,tasks[current].est-s));
+   if(s>tasks[current].est && !tasks[current].alerted){console.warn('Task exceeded estimated time!');tasks[current].alerted=true;}
+   render();
+  },1000);
+ }else{
+  paused=true;pauseStart=Date.now();clearInterval(tick);$('stateText').textContent='Paused';$('startBtn').textContent='Resume';
+ }
+ updateTaskInputVisibility();
+};
+$('completeBtn').onclick=()=>{
+ if(current===null || !tasks[current])return;
+ clearInterval(tick);paused=true;
+ totalActual+=tasks[current].spent;
+ tasks[current].done=true;
+ const remainingTasks=tasks.filter(t=>!t.done);
+ if(remainingTasks.length>0){
+  current=tasks.indexOf(remainingTasks[0]);
+  loadTask(current);
+ } else {
+  showStats();
+  current=null;
+ }
+ render();
+};
+function showStats(){
+ clearInterval(tick);
+ const table=$('statsTable');
+ table.innerHTML='<tr><th>Task</th><th>Estimated</th><th>Actual</th></tr>';
+ let totalEst=0,totalSpent=0;
+ tasks.forEach(t=>{totalEst+=t.est;totalSpent+=t.spent;table.innerHTML+=`<tr><td>${t.text}</td><td>${fmt(t.est)}</td><td>${fmt(t.spent)}</td></tr>`;});
+ const totalFocused = totalActual - totalPaused;
+ const wallClock=totalActual;
+ $('statsSummary').textContent = 
+ `Tasks completed: ${tasks.length}
+Total estimated time: ${fmt(totalEst)}
+Total actual time spent: ${fmt(totalActual)}
+Total focused time (excluding pauses): ${fmt(totalFocused)}
+Total paused time: ${fmt(totalPaused)}
+Total wall-clock time: ${fmt(wallClock)}`;
+ $('resultsOverlay').style.display='flex';
+}
+$('closeStatsBtn').onclick=()=>{
+ clearInterval(tick);
+ tasks=[];current=null;paused=true;tick=null;taskStart=0;pauseStart=0;totalPaused=0;totalActual=0;
+ $('taskList').innerHTML='';
+ $('currentTask').textContent='No task selected';
+ $('countdown').textContent='00:00';
+ $('stopwatch').textContent='00:00:00';
+ $('stateText').textContent='Idle';
+ $('startBtn').textContent='Start';
+ $('remaining').textContent='0';
+ $('doneCount').textContent='0';
+ $('resultsOverlay').style.display='none';
+ updateTaskInputVisibility();
+};
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
+}
+</script>
+</body>
+</html>
+
