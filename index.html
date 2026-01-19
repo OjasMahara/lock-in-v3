@@ -3,24 +3,36 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>LockIn_Tab</title>
+<title>LockIn_Tab v3</title>
 <link rel="icon" type="image/png" href="icon.png">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
-<meta name="theme-color" content="#1f2937"> <style>
+<meta name="theme-color" content="#1f2937">
+<style>
 :root{
-  --bg:#1f2937; --card:#1f2937; --muted:#94a3b8; --accent:#22c55e;
+  --bg:#111827; /* Darker background for a more native feel */
+  --card:#1f2937; --muted:#94a3b8; --accent:#22c55e;
   --accent-glow:0 0 15px rgba(34,197,94,.4);
   --glass:rgba(255,255,255,.05); --border:rgba(255,255,255,.08);
   --focus-blue:#60a5fa; --warning:#f97316; --success:#34d399;
 }
-html,body{height:100%;margin:0;font-family:Inter,system-ui,sans-serif;color:#f8fafc;background:var(--bg)}
-body{display:flex;justify-content:center;align-items:flex-start}
 
-.app{
-  max-width:800px;
-  width: 90%; /* Better width for mobile padding */
-  margin: 20px auto; /* Reduced margin for small screens */
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Inter, system-ui, sans-serif;
+  color: #f8fafc;
+  background: var(--bg);
+  /* CRITICAL: Disables pull-to-refresh so you don't lose your timer */
+  overscroll-behavior-y: none; 
+}
+
+body { display: flex; justify-content: center; align-items: flex-start; }
+
+.app {
+  max-width: 800px;
+  width: 92%;
+  margin: 20px auto;
   padding: 20px;
   border-radius: 16px;
   background: var(--card);
@@ -28,68 +40,64 @@ body{display:flex;justify-content:center;align-items:flex-start}
   box-shadow: 0 4px 20px rgba(0,0,0,0.3);
 }
 
-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
-h1{margin:0;font-size:20px;color:var(--accent)}
+header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+h1 { margin: 0; font-size: 22px; color: var(--accent); }
 
-/* Touch-friendly inputs */
-input,button{
-  font-size:16px; /* Prevents iOS auto-zoom */
-  padding: 14px; 
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:#111827;
-  color:inherit;
-  outline: none;
+/* Mobile-friendly inputs: 16px font prevents iOS "Jump-Zoom" */
+input, button {
+  font-size: 16px; 
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #111827;
+  color: inherit;
+  /* Removes tap lag on mobile */
+  touch-action: manipulation; 
 }
 
-.task-input{display:flex;gap:10px;margin-bottom:24px}
-.task-input input[type=text]{flex:1}
-.task-input input[type=number]{width:65px}
+.task-input { display: flex; gap: 10px; margin-bottom: 24px; }
+.task-input input[type=text] { flex: 1; }
+.task-input input[type=number] { width: 70px; }
 
-.task-list{display:grid;gap:12px}
-.task{
-  padding:16px;
-  border-radius:12px;
-  border:1px solid var(--border);
-  background:#111827;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  -webkit-tap-highlight-color: transparent; /* Clean touch */
+.task-list { display: grid; gap: 12px; }
+.task {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #111827;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  /* Removes the ugly grey tap box on mobile */
+  -webkit-tap-highlight-color: transparent; 
 }
-.task.selected{border-color:var(--accent); background: rgba(34,197,94,0.05);}
 
-.timer-grid{display:none;grid-template-columns:1fr 1fr;gap:15px;margin-top:25px}
-.timer-card{background:var(--glass);padding:15px;border-radius:14px;border:1px solid var(--border);text-align:center}
-.time{font-size:32px;font-weight:700; font-variant-numeric: tabular-nums;}
+.timer-grid { display: none; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 25px; }
+.timer-card { background: var(--glass); padding: 15px; border-radius: 14px; border: 1px solid var(--border); text-align: center; }
+.time { font-size: 36px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-.actions{display:flex;gap:12px;margin-top:20px}
-.actions button { flex: 1; padding: 16px; }
+.actions { display: flex; gap: 12px; margin-top: 20px; }
+.actions button { flex: 1; padding: 18px; font-size: 18px; }
 
-button.primary{background:var(--accent);border:none;color:#000;font-weight:700}
-button.secondary{background:#374151; border:none;}
+button.primary { background: var(--accent); border: none; color: #000; font-weight: 700; }
+button.secondary { background: #374151; border: none; }
 
-/* --- MOBILE SPECIFIC FIXES --- */
+/* --- MOBILE SPECIFIC LAYOUT --- */
 @media (max-width: 600px) {
-  .app { width: 92%; padding: 15px; margin: 10px auto; }
-  
-  header { flex-direction: column; align-items: flex-start; gap: 4px; }
-  
+  .app { margin: 10px auto; padding: 15px; }
+  h1 { font-size: 18px; }
   .task-input { flex-direction: column; }
-  .task-input input[type=number] { width: 100%; }
-  
-  .timer-grid { grid-template-columns: 1fr; } /* Stack timers on top of each other */
-  
-  .time { font-size: 40px; }
-
+  .task-input input[type=number] { width: 100%; box-sizing: border-box; }
+  .timer-grid { grid-template-columns: 1fr; }
+  .time { font-size: 42px; }
   .task { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .task-actions { width: 100%; display: flex; justify-content: flex-end; }
+  .task-actions { width: 100%; display: flex; justify-content: flex-end; gap: 8px; }
 }
 
-/* Rest of your overlay styles... */
-.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.85); z-index: 100;}
-.overlay-card{background:#111827;padding:20px;border-radius:16px;width:90%;max-height: 90vh; overflow-y: auto;}
+.overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.9); z-index: 1000; }
+.overlay-card { background: #111827; padding: 25px; border-radius: 16px; width: 90%; max-height: 85vh; overflow-y: auto; }
 </style>
+
 </head>
 <body>
 <div class="app" id="appContainer">
